@@ -1113,7 +1113,7 @@ function makeInitials(name){
 
 function normaliseTilers(raw){
   // Power Automate sends an array of row-objects from Tilers.xlsx
-  // Required columns: Name, Active. We filter Active='yes' (case-insensitive).
+  // Required columns: Name (or fname), Active. We filter Active='yes' (case-insensitive).
   if(!Array.isArray(raw)) return [];
   return raw
     .filter(r => {
@@ -1121,7 +1121,7 @@ function normaliseTilers(raw){
       return active === 'yes' || active === 'true' || active === '1';
     })
     .map(r => {
-      const name = (r.Name ?? r.name ?? '').toString().trim();
+      const name = (r.fname ?? r.Name ?? r.name ?? r.FName ?? r.FirstName ?? '').toString().trim();
       if(!name) return null;
       return {
         id: 't_' + name.toLowerCase().replace(/[^a-z0-9]/g, ''),
