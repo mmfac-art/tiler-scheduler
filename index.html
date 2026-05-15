@@ -130,16 +130,16 @@
 
   .tiler-list{
     flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch;
-    display:grid;grid-template-columns:repeat(2,1fr);
+    display:flex;flex-direction:row;flex-wrap:wrap;
     gap:6px;align-content:start;
   }
   .tiler-card{
     background:transparent;border:1px solid transparent;
-    padding:6px 8px;margin:0;cursor:grab;
-    display:flex;align-items:center;gap:8px;
-    transition:background .12s ease, border-color .12s ease;
+    padding:3px;margin:0;cursor:grab;
+    display:inline-flex;align-items:center;
+    transition:background .12s ease;
     position:relative;user-select:none;touch-action:manipulation;
-    border-radius:18px;
+    border-radius:20px;
   }
   @media (hover:hover){
     .tiler-card:hover{background:var(--paper-3)}
@@ -151,10 +151,14 @@
   }
   .tiler-card.selected .tiler-name{color:var(--accent-2);font-weight:500}
   .avatar{
-    width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
-    color:#fff;font-weight:500;font-size:11px;font-family:'Google Sans','Roboto',sans-serif;
+    min-width:26px;height:26px;border-radius:13px;
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:0 9px;
+    color:#fff;font-weight:500;font-size:12px;font-family:'Google Sans','Roboto',sans-serif;
     flex-shrink:0;border:none;
     background:var(--accent);
+    white-space:nowrap;
+    line-height:1;
   }
   .tiler-info{flex:1;min-width:0}
   .tiler-name{font-weight:400;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
@@ -308,9 +312,11 @@
   }
   .selection-bar.show{display:flex}
   .sel-avatar{
-    width:32px;height:32px;border-radius:50%;display:grid;place-items:center;
-    color:var(--ink);font-weight:500;font-size:12px;font-family:'Google Sans','Roboto',sans-serif;
+    min-width:32px;height:32px;border-radius:16px;padding:0 12px;
+    display:inline-flex;align-items:center;justify-content:center;
+    color:var(--ink);font-weight:500;font-size:13px;font-family:'Google Sans','Roboto',sans-serif;
     flex-shrink:0;border:none;background:#fff;
+    white-space:nowrap;line-height:1;
   }
   .sel-info{flex:1;min-width:0}
   .sel-name{font-weight:500;font-size:13px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Google Sans','Roboto',sans-serif}
@@ -435,7 +441,7 @@
     background:var(--paper);padding:6px 12px;
     border:none;border-radius:18px;
   }
-  .crew-row .avatar{width:28px;height:28px;font-size:11px}
+  .crew-row .avatar{min-width:28px;height:28px;font-size:12px;padding:0 10px}
   .crew-row .crew-name{flex:1;font-size:14px;font-weight:400;color:var(--ink);font-family:'Google Sans','Roboto',sans-serif}
   .crew-row .crew-remove{
     background:transparent;border:none;cursor:pointer;
@@ -619,11 +625,15 @@
   }
   .res-bar.continues-left.continues-right{border-radius:0}
   .res-bar .bar-init{
-    width:16px;height:16px;border-radius:50%;
-    display:grid;place-items:center;flex-shrink:0;
+    min-width:16px;height:16px;border-radius:8px;
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:0 6px;
+    flex-shrink:0;
     background:rgba(255,255,255,0.25);color:#fff;
-    font-family:'Google Sans','Roboto',sans-serif;font-size:9px;font-weight:500;
+    font-family:'Google Sans','Roboto',sans-serif;font-size:10px;font-weight:500;
     border:none;
+    white-space:nowrap;
+    line-height:1;
   }
   .res-bar .res-bar-text{
     flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
@@ -662,7 +672,7 @@
     .res-proj-cell{min-width:140px;font-size:12px;padding:6px 8px}
     .res-corner{min-width:140px}
     .res-bar{font-size:11px;padding:0 4px;gap:3px}
-    .res-bar .bar-init{width:13px;height:13px;font-size:8px}
+    .res-bar .bar-init{min-width:13px;height:13px;font-size:9px;padding:0 5px}
     .res-bar .res-bar-text{font-size:11px}
     .res-bar .res-bar-meta{font-size:9px}
     .res-bar .res-bar-remove{width:14px;height:14px;font-size:11px}
@@ -813,8 +823,49 @@
   @media (max-width:540px){
     .last-sync-label{display:none}
   }
+
+  /* Leader crown + crew menu */
+  .crew-row .crew-crown{
+    font-size:14px;line-height:1;flex-shrink:0;
+    margin-right:2px;
+  }
+  .crew-row.is-leader{
+    background:#fff8e1;  /* soft amber */
+  }
+  .crew-row .crew-menu{
+    background:transparent;border:none;cursor:pointer;
+    color:var(--grout);font-size:18px;line-height:1;
+    padding:4px 8px;border-radius:50%;width:32px;height:32px;
+    display:grid;place-items:center;
+    margin-left:4px;
+  }
+  .crew-row .crew-menu:hover{background:var(--paper-3);color:var(--ink)}
+  .crew-popover{
+    position:fixed;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:6px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+    z-index:200;
+    min-width:160px;
+    padding:4px 0;
+  }
+  .crew-popover button{
+    width:100%;text-align:left;border:none;background:transparent;
+    padding:10px 14px;cursor:pointer;font-size:13px;color:var(--ink);
+    font-family:'Google Sans','Roboto',sans-serif;
+  }
+  .crew-popover button:hover{background:var(--paper-3)}
+
+  /* Crown on the resource bar */
+  .res-bar .bar-crown{
+    font-size:12px;line-height:1;flex-shrink:0;
+    margin-right:1px;
+  }
+  @media (max-width:540px){
+    .res-bar .bar-crown{font-size:10px}
+  }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -826,7 +877,6 @@
   </div>
 
   <div class="header-actions">
-    <button class="upload-btn" id="uploadBtn" title="Upload Excel file">↑ XLSX</button>
     <span class="source-tag" id="sourceTag">PODIUM TEST</span>
     <div class="sync-status stat" id="syncStatus" title="Click to configure SharePoint sync">
       <span class="sync-dot disconnected" id="syncDot"></span>
@@ -873,7 +923,6 @@
 
   </div>
 
-<input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none"/>
 <div id="projectList" style="display:none"></div>
 
 <div class="selection-bar" id="selectionBar">
@@ -1146,14 +1195,27 @@ function normaliseProjects(raw){
       const projName = (r['Project Name'] ?? r.ProjectName ?? r.Project_Name ?? r.name ?? '').toString().trim();
       if(!code) return null;
       const display = projName ? `${code} · ${projName}` : code;
+      // Tolerant numeric parser: strips commas, spaces, units, percent signs.
+      // Accepts "1,285", "1285 m2", "1285.5", numbers, etc. Returns 0 only when
+      // there's truly no numeric content.
+      const num = (v) => {
+        if(v === null || v === undefined || v === '') return 0;
+        if(typeof v === 'number' && !isNaN(v)) return v;
+        const cleaned = v.toString().replace(/[,\s]/g, '').replace(/[^\d.\-]/g, '');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      // Try common header variants for each field
+      const sqmRaw    = r['Tile m2'] ?? r['Tile\nm2'] ?? r['Tile m²'] ?? r['Tile\nm²'] ?? r['Tile M2'] ?? r['Tile_m2'] ?? r.TileM2 ?? r.tile_m2 ?? r.sqm;
+      const mandayRaw = r['Planned Man-day'] ?? r['Planned\nMan-day'] ?? r['Planned Manday'] ?? r['Planned\nManday'] ?? r['Planned_Man-day'] ?? r['Planned_Man_day'] ?? r['Planned Man Day'] ?? r.PlannedManday ?? r.manday;
       return {
         id: code,
         code,
         name: display,
         addr: '',
-        sqm: parseInt(r['Tile m2'] ?? r.TileM2 ?? r.Tile_m2 ?? r.sqm ?? 0) || 0,
-        manday: parseInt(r['Planned Man-day'] ?? r.PlannedManday ?? r.Planned_Man_day ?? r.manday ?? 0) || 0,
-        contractValue: parseFloat(r['Contract Value'] ?? r.ContractValue ?? r.Contract_Value ?? 0) || 0,
+        sqm: Math.round(num(sqmRaw)),
+        manday: Math.round(num(mandayRaw)),
+        contractValue: num(r['Contract Value'] ?? r.ContractValue ?? r.Contract_Value),
         deadline: '',
         startDate: r['Start date'] ?? r.StartDate ?? r.Start_date ?? r.startDate ?? '',
       };
@@ -1177,6 +1239,7 @@ function normaliseBookings(raw){
       start: parseLocalDate((r.StartDate ?? r.startDate ?? '').toString().slice(0,10)),
       days: parseInt(r.Days ?? r.days ?? 1) || 1,
       taskType: (r.TaskType ?? r.taskType ?? DEFAULT_TASK).toString().toLowerCase(),
+      isLeader: !!(r.IsLeader ?? r.isLeader ?? false),
     };
   }).filter(a => a.tilerId && a.projectId); // drop orphans
 }
@@ -1195,6 +1258,7 @@ function serialiseBookings(){
       StartDate: startStr,
       Days: a.days,
       TaskType: a.taskType || DEFAULT_TASK,
+      IsLeader: !!a.isLeader,
     };
   });
 }
@@ -1303,11 +1367,10 @@ function renderTilers(filter=''){
       card.draggable=true;
       card.dataset.tilerId=t.id;
       const fn = t.name.split(' ')[0];
+      // Avatar shows the full first name as a pill, so the tiler-info name becomes redundant.
+      // Keep tiler-info empty for now in case we want to add more details later.
       card.innerHTML=`
-        <div class="avatar">${t.init}</div>
-        <div class="tiler-info">
-          <div class="tiler-name">${fn}</div>
-        </div>
+        <div class="avatar">${escapeHtml(fn)}</div>
       `;
       card.addEventListener('dragstart',e=>{
         dragData={tilerId:t.id};
@@ -1600,8 +1663,12 @@ function renderResourceView(){
         flushSeg();
     }
 
-    // Sort by tiler name first, then start, so the same person stays on the same row
+    // Sort: leader first (regardless of name), then alphabetical by tiler name, then start.
+    // This pins the leader to the top sub-row of the project.
     projAssigns.sort((x,y) => {
+      const xL = x.a.isLeader ? 0 : 1;
+      const yL = y.a.isLeader ? 0 : 1;
+      if(xL !== yL) return xL - yL;
       const n = x.tiler.name.localeCompare(y.tiler.name);
       if(n !== 0) return n;
       return x.startCol - y.startCol;
@@ -1734,9 +1801,11 @@ function renderResourceView(){
         bar.style.background = taskType.color;
         // On narrow mobile, show ONLY initials (no name) so bars fit in tight columns
         const showNameText = !isNarrow || span >= 2;
+        const isLeader = !!seg.a.isLeader;
         bar.innerHTML = `
-          ${showLabel ? `<span class="bar-init">${seg.tiler.init}</span>` : ''}
-          ${showLabel && showNameText ? `<span class="res-bar-text">${escapeHtml(firstName)}</span>` : (!showLabel ? `<span class="res-bar-text">↪</span>` : '')}
+          ${showLabel && isLeader ? `<span class="bar-crown" title="Leader of this booking">👑</span>` : ''}
+          ${showLabel ? `<span class="bar-init">${escapeHtml(firstName)}</span>` : ''}
+          ${!showLabel ? `<span class="res-bar-text">↪</span>` : ''}
           ${showLabel && span >= 2 ? `<span class="res-bar-meta">${taskType.short}</span>` : ''}
           ${showLabel ? `<span class="res-bar-remove" data-aid="${seg.a.id}" title="Remove this booking">×</span>` : ''}
         `;
@@ -1812,7 +1881,7 @@ function showUnbookedPopover(dayIdx, anchorEl){
   } else {
     list.innerHTML = free.map(t => {
       const fn = t.name.split(' ')[0];
-      return `<div class="tiler-pill"><div class="avatar">${t.init}</div>${escapeHtml(fn)}</div>`;
+      return `<div class="tiler-pill"><div class="avatar">${escapeHtml(fn)}</div></div>`;
     }).join('');
   }
 
@@ -1910,6 +1979,7 @@ function addAssignment(tilerId, projectId, start, days, taskType){
     id:'a'+Date.now()+Math.random().toString(36).slice(2,6),
     tilerId, projectId, start, days,
     taskType: taskType || selectedTaskType || DEFAULT_TASK,
+    isLeader: false,
   });
   saveBookingsToCloud();
 }
@@ -1919,7 +1989,7 @@ function updateSelectionBar(){
   if(selectedTilerId && window.innerWidth<=820){
     const t = tilerById.get(selectedTilerId);
     if(!t){bar.classList.remove('show');return}
-    document.getElementById('selAvatar').textContent = t.init;
+    document.getElementById('selAvatar').innerHTML = escapeHtml(t.name.split(' ')[0]);
     document.getElementById('selAvatar').style.background = '#fff';
     document.getElementById('selName').textContent = t.name;
     document.getElementById('selHint').textContent = `Tap a day on a project's row · ${selectedDuration}d`;
@@ -1975,22 +2045,33 @@ function openModal(aid){
 
 function renderCrewList(aid){
   const crew = getCrewAssignments(aid);
+  // Sort: leader first, then alphabetical
+  crew.sort((x, y) => {
+    const xL = x.isLeader ? 0 : 1;
+    const yL = y.isLeader ? 0 : 1;
+    if(xL !== yL) return xL - yL;
+    const xN = (tilerById.get(x.tilerId)?.name) || '';
+    const yN = (tilerById.get(y.tilerId)?.name) || '';
+    return xN.localeCompare(yN);
+  });
+
   const list = document.getElementById('crewList');
   list.innerHTML = '';
   crew.forEach(asg=>{
     const t = tilerById.get(asg.tilerId);
     if(!t) return;
+    const isLeader = !!asg.isLeader;
+    const fn = t.name.split(' ')[0];
     const row = document.createElement('div');
-    row.className = 'crew-row';
+    row.className = 'crew-row' + (isLeader ? ' is-leader' : '');
     row.innerHTML = `
-      <div class="avatar" style="background:var(--ink)">${t.init}</div>
-      <div style="flex:1;min-width:0">
-        <div class="crew-name">${escapeHtml(t.name)}</div>
-      </div>
+      ${isLeader ? `<span class="crew-crown" title="Leader of this booking">👑</span>` : ''}
+      <div class="avatar">${escapeHtml(fn)}</div>
+      <div style="flex:1"></div>
+      <button class="crew-menu" data-aid="${asg.id}" title="Options">⋮</button>
       <button class="crew-remove" data-aid="${asg.id}" title="Remove from crew">×</button>
     `;
     row.querySelector('.crew-remove').onclick = ()=>{
-      // can't remove if it's the only one — use Delete all instead
       const remaining = getCrewAssignments(aid).filter(x=>x.id!==asg.id);
       if(remaining.length === 0){
         showToast('Use "Delete all" to remove the last member', 'error');
@@ -1998,10 +2079,13 @@ function renderCrewList(aid){
       }
       assignments = assignments.filter(x=>x.id!==asg.id);
       saveBookingsToCloud();
-      // if we just removed the editingId, switch to one of the remaining
       if(asg.id === editingId) editingId = remaining[0].id;
       renderCrewList(editingId);
       refresh();
+    };
+    row.querySelector('.crew-menu').onclick = (ev)=>{
+      ev.stopPropagation();
+      showCrewMenu(asg, ev.currentTarget);
     };
     list.appendChild(row);
   });
@@ -2012,6 +2096,53 @@ function renderCrewList(aid){
   sel.innerHTML = '<option value="">+ Add a tiler...</option>' +
     TILERS.filter(t=>!onCrew.has(t.id))
       .map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+}
+
+// Three-dot menu on a crew row
+function showCrewMenu(asg, anchorEl){
+  // Remove any existing menu
+  const existing = document.querySelector('.crew-popover');
+  if(existing) existing.remove();
+
+  const isLeader = !!asg.isLeader;
+  const menu = document.createElement('div');
+  menu.className = 'crew-popover';
+  menu.innerHTML = isLeader
+    ? `<button data-action="demote">Remove leader status</button>`
+    : `<button data-action="promote">👑 Make leader</button>`;
+
+  // Position the menu next to the anchor
+  document.body.appendChild(menu);
+  const r = anchorEl.getBoundingClientRect();
+  menu.style.left = (r.left - 140) + 'px';
+  menu.style.top = (r.bottom + 4) + 'px';
+
+  menu.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    if(btn.dataset.action === 'promote'){
+      // Demote any current leader, promote this one
+      const crew = getCrewAssignments(editingId);
+      crew.forEach(a => { a.isLeader = false; });
+      asg.isLeader = true;
+    } else if(btn.dataset.action === 'demote'){
+      asg.isLeader = false;
+    }
+    saveBookingsToCloud();
+    menu.remove();
+    renderCrewList(editingId);
+    refresh();
+  });
+
+  // Close on outside click — deferred so this click doesn't immediately close it
+  setTimeout(() => {
+    const close = (ev) => {
+      if(ev.target.closest('.crew-popover')) return;
+      menu.remove();
+      document.removeEventListener('click', close, true);
+    };
+    document.addEventListener('click', close, true);
+  }, 0);
 }
 function closeModal(){editingId=null;document.getElementById('modal').classList.remove('show')}
 
@@ -2051,7 +2182,7 @@ function setupTouchDrag(){
       const t = tilerById.get(sourceTilerId);
       ghost = document.createElement('div');
       ghost.className='touch-ghost';
-      ghost.innerHTML=`<div class="avatar">${t.init}</div><div class="tiler-name">${t.name.split(' ')[0]}</div>`;
+      ghost.innerHTML=`<div class="avatar">${escapeHtml(t.name.split(' ')[0])}</div>`;
       ghost.style.left=startX+'px';
       ghost.style.top=startY+'px';
       document.body.appendChild(ghost);
@@ -2093,71 +2224,6 @@ function setupTouchDrag(){
     document.querySelectorAll('.day.drop-target').forEach(d=>d.classList.remove('drop-target'));
     dragging=false;sourceTilerId=null;
   });
-}
-
-function parseExcelFile(file){
-  showToast('Reading Excel...');
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    try{
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, {type:'array', cellDates:true});
-      // Look for sheet "ProjectPlanner" first, fall back to first sheet
-      const sheetName = wb.SheetNames.includes('ProjectPlanner') ? 'ProjectPlanner' : wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-
-      // The Podium template has Table4 starting at row 10 (header row 10, data from row 11)
-      // Try to detect: look for a row with "Title" and "Project Name" headers
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
-      let headerRow = -1;
-      for(let i=0;i<Math.min(rows.length, 30);i++){
-        const r = rows[i].map(c=>String(c).toLowerCase().trim());
-        if(r.includes('title') && r.some(c=>c.includes('project name'))){
-          headerRow = i; break;
-        }
-      }
-      if(headerRow === -1){
-        // try just the first sheet as a flat table
-        const flat = XLSX.utils.sheet_to_json(ws, {defval:''});
-        if(flat.length > 0){
-          applyIncomingProjects(flat.filter(r=>r['Project Status']==='100 Current' || !r['Project Status']));
-          showToast(`Imported ${flat.length} rows`, 'success');
-          return;
-        }
-        throw new Error('Could not find Title/Project Name headers');
-      }
-
-      const headers = rows[headerRow].map(h=>String(h).trim());
-      const dataRows = rows.slice(headerRow+1);
-      const records = dataRows.map(row=>{
-        const obj = {};
-        headers.forEach((h,idx)=>{ if(h) obj[h] = row[idx]; });
-        return obj;
-      }).filter(r=>r['Title'] || r['Project Name']);
-
-      // filter active only
-      const active = records.filter(r=>{
-        const st = String(r['Project Status']||'').trim();
-        return st === '100 Current' || st.toLowerCase().includes('current');
-      });
-
-      if(active.length === 0){
-        showToast('No active projects (Project Status = "100 Current") found', 'error');
-        return;
-      }
-
-      applyIncomingProjects(active);
-      showToast(`Imported ${active.length} active projects from Excel`, 'success');
-      const tag = document.getElementById('sourceTag');
-      tag.textContent = 'EXCEL';
-      tag.classList.remove('live');
-    }catch(err){
-      console.error(err);
-      showToast('Excel parse failed: '+err.message, 'error');
-    }
-  };
-  reader.onerror = ()=> showToast('Failed to read file', 'error');
-  reader.readAsArrayBuffer(file);
 }
 
 function bindEvents(){
@@ -2243,17 +2309,6 @@ function bindEvents(){
   const setupRefreshBtn = document.getElementById('setupRefresh');
   if(setupRefreshBtn) setupRefreshBtn.onclick = ()=>{ closeSetup(); syncFromCloud(); };
   document.getElementById('setupModal').onclick=(e)=>{if(e.target.id==='setupModal') closeSetup()};
-
-  // Upload Excel handler
-  document.getElementById('uploadBtn').onclick = ()=>{
-    document.getElementById('fileInput').click();
-  };
-  document.getElementById('fileInput').onchange = (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    parseExcelFile(file);
-    e.target.value = '';
-  };
 
   document.querySelectorAll('.copy-btn').forEach(btn=>{
     btn.onclick=()=>{
