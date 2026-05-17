@@ -149,6 +149,9 @@
   .tiler-card.selected{
     background:var(--accent-soft);border-color:var(--accent);
   }
+  .tiler-card.selected .avatar{
+    box-shadow:0 0 0 2px var(--accent), 0 0 0 4px var(--paper);
+  }
   .tiler-card.selected .tiler-name{color:var(--accent-2);font-weight:500}
   .avatar{
     min-width:26px;height:26px;border-radius:13px;
@@ -625,13 +628,12 @@
   }
   .res-bar.continues-left.continues-right{border-radius:0}
   .res-bar .bar-init{
-    min-width:16px;height:16px;border-radius:8px;
-    display:inline-flex;align-items:center;justify-content:center;
-    padding:0 6px;
-    flex-shrink:0;
-    background:rgba(255,255,255,0.25);color:#fff;
-    font-family:'Google Sans','Roboto',sans-serif;font-size:10px;font-weight:500;
-    border:none;
+    /* No pill — name appears as plain text on the coloured bar */
+    color:#fff;
+    font-family:'Google Sans','Roboto',sans-serif;font-size:12px;font-weight:500;
+    flex-shrink:1;
+    overflow:hidden;text-overflow:ellipsis;
+    min-width:0;
     white-space:nowrap;
     line-height:1;
   }
@@ -672,7 +674,7 @@
     .res-proj-cell{min-width:140px;font-size:12px;padding:6px 8px}
     .res-corner{min-width:140px}
     .res-bar{font-size:11px;padding:0 4px;gap:3px}
-    .res-bar .bar-init{min-width:13px;height:13px;font-size:9px;padding:0 5px}
+    .res-bar .bar-init{font-size:11px}
     .res-bar .res-bar-text{font-size:11px}
     .res-bar .res-bar-meta{font-size:9px}
     .res-bar .res-bar-remove{width:14px;height:14px;font-size:11px}
@@ -865,6 +867,20 @@
   @media (max-width:540px){
     .res-bar .bar-crown{font-size:10px}
   }
+
+  #clearPastBtn{
+    padding:6px 12px;border-radius:18px;border:1px solid var(--line);background:var(--paper);
+    cursor:pointer;font-size:12px;color:var(--ink-2);
+    font-family:'Google Sans','Roboto',sans-serif;
+    transition:background .12s ease;
+    white-space:nowrap;
+  }
+  #clearPastBtn:hover{background:var(--paper-3);color:var(--ink)}
+  @media (max-width:540px){
+    /* On narrow mobile, hide the label, keep just the icon */
+    #clearPastBtn{padding:6px 10px;font-size:14px}
+    #clearPastBtn .past-label{display:none}
+  }
 </style>
 </head>
 <body>
@@ -877,12 +893,13 @@
   </div>
 
   <div class="header-actions">
-    <span class="source-tag" id="sourceTag">PODIUM TEST</span>
+    <span class="source-tag" id="sourceTag">DEMO</span>
     <div class="sync-status stat" id="syncStatus" title="Click to configure SharePoint sync">
       <span class="sync-dot disconnected" id="syncDot"></span>
       <span class="sync-text" id="syncText">Not connected</span>
     </div>
     <span class="last-sync-label" id="lastSyncLabel" title="Click sync indicator to see details">Never refreshed</span>
+    <button class="btn-secondary" id="clearPastBtn" title="Clear bookings ended before today">🗑<span class="past-label"> Past</span></button>
     <button class="btn-secondary" id="refreshBtn" title="Refresh from SharePoint">↻</button>
     <button class="btn-primary" id="todayBtn">Today</button>
   </div>
@@ -1057,15 +1074,64 @@ let syncStatus = 'disconnected';
 let pollTimer = null;
 let lastSyncedHash = '';
 
+function seedDemoData(){
+  // Sample data used on first load before JSONBin sync arrives.
+  // Provides something to look at + lets the UI demonstrate itself.
+  // Live data from JSONBin REPLACES this entirely when sync succeeds.
+  TILERS = [
+    {id:'t_anouar',     name:'Anouar',      init:'AN'},
+    {id:'t_charles',    name:'Charles',     init:'CH'},
+    {id:'t_chris',      name:'Chris',       init:'CH'},
+    {id:'t_christopher',name:'Christopher', init:'CH'},
+    {id:'t_errol',      name:'Errol',       init:'ER'},
+    {id:'t_frederick',  name:'Frederick',   init:'FR'},
+    {id:'t_hany',       name:'Hany',        init:'HA'},
+    {id:'t_jake',       name:'Jake',        init:'JA'},
+    {id:'t_jesus',      name:'Jesus',       init:'JE'},
+    {id:'t_kevin',      name:'Kevin',       init:'KE'},
+  ];
+  tilerById.clear();
+  TILERS.forEach(t => tilerById.set(t.id, t));
+
+  projects = [
+    {id:'C25011', code:'C25011', name:'C25011 · Lot 67 68 69 72 North Coogee', sqm:1285, manday:122},
+    {id:'C25058', code:'C25058', name:'C25058 · Ashdale SC Additions',         sqm:1192, manday:128},
+    {id:'C25069', code:'C25069', name:'C25069 · SJA Office & Training Centre', sqm:1092, manday:111},
+    {id:'C25082', code:'C25082', name:'C25082 · Elsie Austin Sporting',        sqm: 316, manday: 33},
+    {id:'C25097', code:'C25097', name:'C25097 · 100 SGT Lobby & L10',          sqm:1033, manday: 99},
+  ];
+  knownProjectIds = new Set(projects.map(p=>p.id));
+  activeProjectId = projects[0].id;
+
+  const today = new Date();
+  const d = (offset) => new Date(today.getFullYear(), today.getMonth(), today.getDate()+offset);
+  assignments = [
+    // Solo, Anouar leading
+    {id:'demo1', tilerId:'t_anouar', projectId:'C25011', start:d(0), days:5, taskType:'tile', isLeader:true},
+    // 3-person crew with Christopher as leader
+    {id:'demo2', tilerId:'t_charles',     projectId:'C25058', start:d(1), days:6, taskType:'waterproof', isLeader:false},
+    {id:'demo3', tilerId:'t_chris',       projectId:'C25058', start:d(1), days:6, taskType:'waterproof', isLeader:false},
+    {id:'demo4', tilerId:'t_christopher', projectId:'C25058', start:d(1), days:6, taskType:'waterproof', isLeader:true},
+    // Solo, no leader (just a single task)
+    {id:'demo5', tilerId:'t_errol',     projectId:'C25069', start:d(-2), days:3, taskType:'grout',    isLeader:false},
+    // Solo
+    {id:'demo6', tilerId:'t_frederick', projectId:'C25082', start:d(2),  days:2, taskType:'silicone', isLeader:false},
+    // 2-person crew with Jake as leader, finishing work
+    {id:'demo7', tilerId:'t_hany', projectId:'C25097', start:d(4),  days:4, taskType:'finish',   isLeader:false},
+    {id:'demo8', tilerId:'t_jake', projectId:'C25097', start:d(4),  days:4, taskType:'finish',   isLeader:true},
+  ];
+}
+
 function init(){
   renderTaskLegend();
+  seedDemoData();
   renderTilers();
   renderProjects();
   knownProjectIds = new Set(projects.map(p=>p.id));
   renderResourceView._needsScroll = true;
   refresh();
   bindEvents();
-  // Begin live sync — populates TILERS, projects, assignments from cloud
+  // Begin live sync — replaces the demo data when JSONBin returns.
   syncFromCloud();
 }
 
@@ -1295,6 +1361,9 @@ async function syncFromCloud(){
 
     lastSyncTime = new Date();
     setSyncStatus('live', formatRelativeTime(lastSyncTime));
+    // Re-scroll to Today when fresh data arrives (replaces demo seed which
+    // already used the flag earlier on init).
+    renderResourceView._needsScroll = true;
     fullRefresh();
     updateLastSyncLabel();
     if(projects.length === 0 && TILERS.length === 0){
@@ -1707,7 +1776,8 @@ function renderResourceView(){
     const projCell = document.createElement('div');
     projCell.className = 'res-proj-cell' + (p.id === activeProjectId ? ' active' : '');
     projCell.dataset.projectId = p.id;
-    projCell.style.height = rowHeight + 'px';
+    projCell.style.minHeight = rowHeight + 'px';
+    // project cell may grow if the wrapped name needs more space.
     projCell.innerHTML = `
       <div class="res-proj-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
       <div class="res-proj-meta">
@@ -1734,7 +1804,6 @@ function renderResourceView(){
       if(stripTime(d).getTime() === today.getTime()) cell.classList.add('today');
       cell.dataset.date = d.toISOString();
       cell.dataset.projectId = p.id;
-      cell.style.height = rowHeight + 'px';
       cell.style.minHeight = rowHeight + 'px';
 
       const isSunday = d.getDay() === 0;
@@ -1829,6 +1898,25 @@ function renderResourceView(){
 
   scroller.appendChild(table);
 
+  // Two-pass row height alignment: after first paint, walk projects and bump
+  // every day cell to match the project cell's actual height (which may have
+  // grown if the project name wrapped to multiple lines).
+  requestAnimationFrame(() => {
+    const projCells = scroller.querySelectorAll('.res-proj-cell');
+    projCells.forEach(projCell => {
+      const projectId = projCell.dataset.projectId;
+      if(!projectId) return;
+      const actualH = projCell.offsetHeight;
+      // find this project's day cells and bump them
+      const dayCells = scroller.querySelectorAll(`.res-day-cell[data-project-id="${CSS.escape(projectId)}"]`);
+      dayCells.forEach(dc => {
+        if(dc.offsetHeight < actualH){
+          dc.style.minHeight = actualH + 'px';
+        }
+      });
+    });
+  });
+
   // Auto-scroll to today only on first render or explicit navigation, not after
   // every booking edit. rAF ensures the scroll happens after layout.
   if(renderResourceView._needsScroll){
@@ -1911,6 +1999,35 @@ function showUnbookedPopover(dayIdx, anchorEl){
 
 function hideUnbookedPopover(){
   document.getElementById('dayPopover').classList.remove('show');
+}
+
+function clearPastBookings(){
+  const today = stripTime(new Date());
+  // A booking's last working day = workingDatesFor()[length-1]. We clear bookings
+  // whose last working day is strictly BEFORE today.
+  const toDelete = assignments.filter(a => {
+    const dates = workingDatesFor(a.start, a.days);
+    const lastDay = dates[dates.length-1];
+    if(!lastDay) return false;
+    return stripTime(lastDay).getTime() < today.getTime();
+  });
+
+  if(toDelete.length === 0){
+    showToast('No past bookings to clear', 'success');
+    return;
+  }
+
+  const ok = confirm(
+    `Delete ${toDelete.length} booking${toDelete.length === 1 ? '' : 's'} that ended before today?\n\n` +
+    `This cannot be undone.`
+  );
+  if(!ok) return;
+
+  const ids = new Set(toDelete.map(a => a.id));
+  assignments = assignments.filter(a => !ids.has(a.id));
+  saveBookingsToCloud();
+  refresh();
+  showToast(`Cleared ${toDelete.length} past booking${toDelete.length === 1 ? '' : 's'}`, 'success');
 }
 
 function workingDatesFor(start, days){
@@ -2090,12 +2207,54 @@ function renderCrewList(aid){
     list.appendChild(row);
   });
 
-  // populate Add-tiler dropdown with people NOT already on the crew
+  // populate Add-tiler dropdown:
+  // - exclude tilers already on this crew (they're already added)
+  // - among the rest, show "available" tilers first (not booked anywhere
+  //   during this booking's working-day range)
+  // - then show "busy" tilers in italic at the bottom (so user knows they're
+  //   double-booking, but can still pick them)
   const onCrew = new Set(crew.map(c=>c.tilerId));
   const sel = document.getElementById('addCrewSelect');
-  sel.innerHTML = '<option value="">+ Add a tiler...</option>' +
-    TILERS.filter(t=>!onCrew.has(t.id))
-      .map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+
+  // Get this booking's working-day range (any of the crew rows is fine since
+  // they share start+days+project)
+  const ref = crew[0];
+  const refDates = ref ? workingDatesFor(ref.start, ref.days).map(d => stripTime(d).getTime()) : [];
+  const refDateSet = new Set(refDates);
+
+  // Build the busy set: tilers booked on ANOTHER assignment that overlaps any
+  // of the reference dates. We exclude the current crew itself from the check.
+  const crewIds = new Set(crew.map(c => c.id));
+  const busyTilerIds = new Set();
+  if(refDates.length > 0){
+    for(const a of assignments){
+      if(crewIds.has(a.id)) continue;  // skip current booking's own rows
+      const aDates = workingDatesFor(a.start, a.days);
+      for(const d of aDates){
+        if(refDateSet.has(stripTime(d).getTime())){
+          busyTilerIds.add(a.tilerId);
+          break;
+        }
+      }
+    }
+  }
+
+  const candidates = TILERS.filter(t => !onCrew.has(t.id));
+  const available = candidates.filter(t => !busyTilerIds.has(t.id));
+  const busy      = candidates.filter(t =>  busyTilerIds.has(t.id));
+
+  let html = '<option value="">+ Add a tiler...</option>';
+  if(available.length > 0){
+    html += '<optgroup label="Available">';
+    html += available.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    html += '</optgroup>';
+  }
+  if(busy.length > 0){
+    html += '<optgroup label="Already booked (double-book)">';
+    html += busy.map(t => `<option value="${t.id}" style="font-style:italic;color:#888">${escapeHtml(t.name)} · busy</option>`).join('');
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
 }
 
 // Three-dot menu on a crew row
@@ -2235,6 +2394,12 @@ function bindEvents(){
       await syncFromCloud();
       refreshBtn.classList.remove('spinning');
     };
+  }
+
+  // Clear past bookings (bookings whose last working day is before today)
+  const clearPastBtn = document.getElementById('clearPastBtn');
+  if(clearPastBtn){
+    clearPastBtn.onclick = ()=> clearPastBookings();
   }
 
   document.getElementById('prevMonth').onclick=()=>{
