@@ -881,6 +881,60 @@
     #clearPastBtn{padding:6px 10px;font-size:14px}
     #clearPastBtn .past-label{display:none}
   }
+
+  #exportDayBtn{
+    padding:6px 12px;border-radius:18px;border:1px solid var(--line);background:var(--paper);
+    cursor:pointer;font-size:12px;color:var(--ink-2);
+    font-family:'Google Sans','Roboto',sans-serif;
+    transition:background .12s ease;
+    white-space:nowrap;
+  }
+  #exportDayBtn:hover{background:var(--paper-3);color:var(--ink)}
+  @media (max-width:540px){
+    #exportDayBtn{padding:6px 10px;font-size:14px}
+    #exportDayBtn .export-label{display:none}
+  }
+
+  /* Export modal */
+  .export-modal{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.45);
+    display:none;align-items:center;justify-content:center;
+    z-index:300;
+  }
+  .export-modal.show{display:flex}
+  .export-modal .export-card{
+    background:var(--paper);border-radius:10px;
+    width:min(560px, 92vw);max-height:92vh;
+    box-shadow:0 8px 32px rgba(0,0,0,0.2);
+    display:flex;flex-direction:column;
+    overflow:hidden;
+  }
+  .export-modal .export-head{
+    padding:16px 20px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+  }
+  .export-modal .export-head h3{margin:0;font-size:16px;flex:1}
+  .export-modal .export-head input[type=date]{
+    border:1px solid var(--line);border-radius:6px;padding:6px 8px;
+    font-family:'Roboto','Google Sans',sans-serif;font-size:13px;
+  }
+  .export-modal textarea{
+    width:100%;flex:1;min-height:300px;
+    border:none;outline:none;resize:none;
+    padding:16px 20px;font-family:'SFMono-Regular',Consolas,'Liberation Mono',monospace;
+    font-size:13px;line-height:1.5;background:var(--paper);
+    color:var(--ink);
+  }
+  .export-modal .export-actions{
+    padding:12px 20px;border-top:1px solid var(--line);
+    display:flex;gap:8px;justify-content:flex-end;
+  }
+  .export-modal .export-copy-feedback{
+    flex:1;color:var(--good);font-size:13px;line-height:32px;
+    opacity:0;transition:opacity .2s ease;
+  }
+  .export-modal .export-copy-feedback.show{opacity:1}
 </style>
 </head>
 <body>
@@ -899,6 +953,7 @@
       <span class="sync-text" id="syncText">Not connected</span>
     </div>
     <span class="last-sync-label" id="lastSyncLabel" title="Click sync indicator to see details">Never refreshed</span>
+    <button class="btn-secondary" id="exportDayBtn" title="Export a day's schedule as text">📋<span class="export-label"> Export</span></button>
     <button class="btn-secondary" id="clearPastBtn" title="Clear bookings ended before today">🗑<span class="past-label"> Past</span></button>
     <button class="btn-secondary" id="refreshBtn" title="Refresh from SharePoint">↻</button>
     <button class="btn-primary" id="todayBtn">Today</button>
@@ -993,6 +1048,22 @@
   </div>
 </div>
 
+<!-- Export day schedule modal -->
+<div class="export-modal" id="exportModal">
+  <div class="export-card">
+    <div class="export-head">
+      <h3 id="exportTitle">Export schedule</h3>
+      <input type="date" id="exportDate" />
+    </div>
+    <textarea id="exportText" readonly spellcheck="false"></textarea>
+    <div class="export-actions">
+      <span class="export-copy-feedback" id="exportCopyFeedback">Copied to clipboard</span>
+      <button class="btn-secondary" id="exportCancelBtn">Close</button>
+      <button class="btn-primary" id="exportCopyBtn">📋 Copy</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="setupModal">
   <div class="modal" style="max-width:520px">
     <h3>Tiler Scheduler · Sync info</h3>
@@ -1042,8 +1113,6 @@
 <script>
 let TILERS = [];
 
-const SAMPLE_PROJECTS = [];
-
 // Task type categories with Google-Calendar-style coloured event palette
 const TASK_TYPES = [
   {id:'screed',     label:'Screed',     short:'SCR', color:'#8e24aa', soft:'#f3e5f5'},   // purple
@@ -1058,7 +1127,7 @@ const tilerById = new Map(TILERS.map(t => [t.id, t]));
 const DEFAULT_TASK = 'tile';
 let selectedTaskType = DEFAULT_TASK; // updated when user picks from legend
 
-let projects = [...SAMPLE_PROJECTS];
+let projects = [];
 let currentDate = new Date();
 let selectedDuration = 1;
 let assignments = [];
@@ -1066,13 +1135,9 @@ let activeProjectId = projects[0]?.id;
 let dragData = null;
 let editingId = null;
 let selectedTilerId = null;
-let activeTab = 'calendar';
 let knownProjectIds = new Set();
 
-let syncConfig = { binId:'', masterKey:'' };
 let syncStatus = 'disconnected';
-let pollTimer = null;
-let lastSyncedHash = '';
 
 function seedDemoData(){
   // Sample data used on first load before JSONBin sync arrives.
@@ -1412,18 +1477,6 @@ function updateLastSyncLabel(){
 setInterval(updateLastSyncLabel, 30000);
 
 // Backwards-compat: legacy functions used elsewhere
-function applyIncomingProjects(){}
-function startPolling(){}
-function stopPolling(){}
-async function connectSync(){ await syncFromCloud(); }
-function disconnectSync(){ /* not used in baked-credentials mode */ }
-function formatDeadline(d){
-  if(!d) return '';
-  const dt = new Date(d);
-  if(!isNaN(dt.getTime())) return dt.toLocaleString('en',{month:'short',day:'2-digit'});
-  return d.toString();
-}
-
 function renderTilers(filter=''){
   const list = document.getElementById('tilerList');
   const q = (filter||'').toLowerCase();
@@ -1435,7 +1488,7 @@ function renderTilers(filter=''){
       card.className='tiler-card'+(t.id===selectedTilerId?' selected':'');
       card.draggable=true;
       card.dataset.tilerId=t.id;
-      const fn = t.name.split(' ')[0];
+      const fn = t.name;
       // Avatar shows the full first name as a pill, so the tiler-info name becomes redundant.
       // Keep tiler-info empty for now in case we want to add more details later.
       card.innerHTML=`
@@ -1557,8 +1610,7 @@ function renderResourceView(){
   // - Mobile: keep compact so 5-6 days visible at once (32-50px range)
   const charPxName = isMobile ? 5.8 : 7.0;
   const longestFirst = TILERS.reduce((max, t) => {
-    const fn = (t.name||'').split(' ')[0];
-    return Math.max(max, fn.length);
+    return Math.max(max, (t.name||'').length);
   }, 4);
   // Day column: bigger on mobile so 1-day bookings still show first names,
   // but capped so we still see ~5 days on screen.
@@ -1598,7 +1650,7 @@ function renderResourceView(){
   // Pre-compute per-day stats: booked tilers + active projects on each day
   const totalCrew = TILERS.length;
   const dayStats = days.map(d => {
-    const dStrip = stripTime(d).getTime();
+    const dStrip = dayKey(d);
     const isSunday = d.getDay() === 0;
     if(isSunday) return {booked:0, projectsActive:0, bookedIds: new Set()};
     const bookedTilers = new Set();
@@ -1608,12 +1660,12 @@ function renderResourceView(){
       // skip out-of-range bookings cheaply
       const last = workingDates[workingDates.length-1];
       if(!last) continue;
-      if(stripTime(last).getTime() < dStrip) continue;
+      if(dayKey(last) < dStrip) continue;
       const first = workingDates[0];
-      if(stripTime(first).getTime() > dStrip) continue;
+      if(dayKey(first) > dStrip) continue;
       let hit = false;
       for(let i=0;i<workingDates.length;i++){
-        if(stripTime(workingDates[i]).getTime() === dStrip){ hit = true; break; }
+        if(dayKey(workingDates[i]) === dStrip){ hit = true; break; }
       }
       if(hit){
         bookedTilers.add(a.tilerId);
@@ -1629,9 +1681,10 @@ function renderResourceView(){
   days.forEach((d, idx)=>{
     const cell = document.createElement('div');
     cell.className = 'res-header-cell';
+    cell.dataset.dayIdx = idx;
     if(d.getDay()===0 || d.getDay()===6) cell.classList.add('weekend');
     if(d.getDay()===0) cell.classList.add('sunday');
-    if(stripTime(d).getTime() === today.getTime()) cell.classList.add('today');
+    if(dayKey(d) === today.getTime()) cell.classList.add('today');
     const dayNum = d.getDate();
     const dayName = d.toLocaleString('en',{weekday:'short'}).slice(0,2);
     const isFirstOfMonth = dayNum === 1;
@@ -1801,7 +1854,7 @@ function renderResourceView(){
       cell.className = 'res-day-cell';
       if(d.getDay()===0 || d.getDay()===6) cell.classList.add('weekend');
       if(d.getDay()===0) cell.classList.add('sunday');
-      if(stripTime(d).getTime() === today.getTime()) cell.classList.add('today');
+      if(dayKey(d) === today.getTime()) cell.classList.add('today');
       cell.dataset.date = d.toISOString();
       cell.dataset.projectId = p.id;
       cell.style.minHeight = rowHeight + 'px';
@@ -1864,7 +1917,7 @@ function renderResourceView(){
         const days_ = seg.a.days;
         const showLabel = !seg.continuesLeft;
 
-        const firstName = seg.tiler.name.split(' ')[0];
+        const firstName = seg.tiler.name;
         const taskType = TASK_BY_ID[seg.a.taskType] || TASK_BY_ID[DEFAULT_TASK];
         // colour the bar by task type
         bar.style.background = taskType.color;
@@ -1968,7 +2021,7 @@ function showUnbookedPopover(dayIdx, anchorEl){
     list.innerHTML = '<div class="empty">Everyone is booked on this day.</div>';
   } else {
     list.innerHTML = free.map(t => {
-      const fn = t.name.split(' ')[0];
+      const fn = t.name;
       return `<div class="tiler-pill"><div class="avatar">${escapeHtml(fn)}</div></div>`;
     }).join('');
   }
@@ -2001,6 +2054,122 @@ function hideUnbookedPopover(){
   document.getElementById('dayPopover').classList.remove('show');
 }
 
+function openExportModal(initialDate){
+  const modal = document.getElementById('exportModal');
+  const dateInput = document.getElementById('exportDate');
+  // Default to today if no date provided
+  const target = initialDate ? stripTime(initialDate) : stripTime(new Date());
+  dateInput.value = localDateString(target);
+  buildExportText(target);
+  modal.classList.add('show');
+}
+
+function closeExportModal(){
+  document.getElementById('exportModal').classList.remove('show');
+  document.getElementById('exportCopyFeedback').classList.remove('show');
+}
+
+function buildExportText(date){
+  const day = stripTime(date);
+  const targetKey = day.getTime();
+
+  // Day-of-week label
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dayName = dayNames[day.getDay()];
+
+  // Find every assignment whose working-day range INCLUDES the target date
+  const onThisDay = assignments.filter(a => {
+    const dates = workingDatesFor(a.start, a.days);
+    return dates.some(d => dayKey(d) === targetKey);
+  });
+
+  // Group by project, then by task type
+  const byProject = new Map();  // projectId -> Map(taskType -> [tilerNames])
+  onThisDay.forEach(a => {
+    if(!byProject.has(a.projectId)) byProject.set(a.projectId, new Map());
+    const projMap = byProject.get(a.projectId);
+    const task = (a.taskType || DEFAULT_TASK);
+    if(!projMap.has(task)) projMap.set(task, []);
+    const tiler = tilerById.get(a.tilerId);
+    if(tiler) projMap.get(task).push(tiler.name);
+  });
+
+  // Count name occurrences ACROSS the whole day so we can number duplicates
+  const nameCounts = new Map();  // name -> total count that day
+  onThisDay.forEach(a => {
+    const tiler = tilerById.get(a.tilerId);
+    if(!tiler) return;
+    nameCounts.set(tiler.name, (nameCounts.get(tiler.name) || 0) + 1);
+  });
+  // Running counter per name as we walk in order
+  const nameSeenSoFar = new Map();
+  // Helper to apply ordinal suffix (1st, 2nd, 3rd, 4th, 5th...)
+  const ordinal = (n) => {
+    if(n >= 11 && n <= 13) return n + 'th';
+    const last = n % 10;
+    if(last === 1) return n + 'st';
+    if(last === 2) return n + 'nd';
+    if(last === 3) return n + 'rd';
+    return n + 'th';
+  };
+
+  // Build the text. Iterate projects in the same order as the calendar (i.e.
+  // projects[] order), so the export matches what the user sees.
+  const lines = [`${dayName} Schedule`, ''];
+  for(const proj of projects){
+    if(!byProject.has(proj.id)) continue;
+    const projMap = byProject.get(proj.id);
+
+    // Strip the "C25011 · " prefix from project name to show clean name
+    const cleanProjName = proj.name.replace(/^[A-Z0-9]+ ·\s*/, '');
+
+    lines.push(`${cleanProjName} / 6:30am`);
+    // Iterate task types in canonical order
+    for(const task of TASK_TYPES){
+      if(!projMap.has(task.id)) continue;
+      lines.push(task.label);
+      projMap.get(task.id).forEach(name => {
+        if(nameCounts.get(name) > 1){
+          const seenCount = (nameSeenSoFar.get(name) || 0) + 1;
+          nameSeenSoFar.set(name, seenCount);
+          lines.push(`${name} ${ordinal(seenCount)}`);
+        } else {
+          lines.push(name);
+        }
+      });
+    }
+    lines.push('');  // blank line between projects
+  }
+
+  // If nothing on this day, say so
+  if(onThisDay.length === 0){
+    lines.length = 2;
+    lines.push('(No bookings on this day)');
+  }
+
+  document.getElementById('exportText').value = lines.join('\n').trim() + '\n';
+}
+
+async function copyExportText(){
+  const text = document.getElementById('exportText').value;
+  try {
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for older browsers
+      const ta = document.getElementById('exportText');
+      ta.select();
+      document.execCommand('copy');
+    }
+    const fb = document.getElementById('exportCopyFeedback');
+    fb.classList.add('show');
+    setTimeout(() => fb.classList.remove('show'), 1800);
+  } catch(err){
+    showToast('Copy failed — please select and copy manually', 'error');
+    console.error(err);
+  }
+}
+
 function clearPastBookings(){
   const today = stripTime(new Date());
   // A booking's last working day = workingDatesFor()[length-1]. We clear bookings
@@ -2009,7 +2178,7 @@ function clearPastBookings(){
     const dates = workingDatesFor(a.start, a.days);
     const lastDay = dates[dates.length-1];
     if(!lastDay) return false;
-    return stripTime(lastDay).getTime() < today.getTime();
+    return dayKey(lastDay) < today.getTime();
   });
 
   if(toDelete.length === 0){
@@ -2106,7 +2275,7 @@ function updateSelectionBar(){
   if(selectedTilerId && window.innerWidth<=820){
     const t = tilerById.get(selectedTilerId);
     if(!t){bar.classList.remove('show');return}
-    document.getElementById('selAvatar').innerHTML = escapeHtml(t.name.split(' ')[0]);
+    document.getElementById('selAvatar').innerHTML = escapeHtml(t.name);
     document.getElementById('selAvatar').style.background = '#fff';
     document.getElementById('selName').textContent = t.name;
     document.getElementById('selHint').textContent = `Tap a day on a project's row · ${selectedDuration}d`;
@@ -2117,7 +2286,7 @@ function updateSelectionBar(){
 }
 
 function switchTab(tab){
-  activeTab = tab;
+
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
   document.querySelectorAll('[data-panel]').forEach(p=>p.classList.toggle('tab-active', p.dataset.panel===tab));
 }
@@ -2127,11 +2296,11 @@ function switchTab(tab){
 function getCrewAssignments(aid){
   const a = assignments.find(x=>x.id===aid);
   if(!a) return [];
-  const startKey = stripTime(a.start).getTime();
+  const startKey = dayKey(a.start);
   const aTask = a.taskType || DEFAULT_TASK;
   return assignments.filter(x=>
     x.projectId === a.projectId
-    && stripTime(x.start).getTime() === startKey
+    && dayKey(x.start) === startKey
     && x.days === a.days
     && (x.taskType || DEFAULT_TASK) === aTask
   );
@@ -2178,7 +2347,7 @@ function renderCrewList(aid){
     const t = tilerById.get(asg.tilerId);
     if(!t) return;
     const isLeader = !!asg.isLeader;
-    const fn = t.name.split(' ')[0];
+    const fn = t.name;
     const row = document.createElement('div');
     row.className = 'crew-row' + (isLeader ? ' is-leader' : '');
     row.innerHTML = `
@@ -2219,7 +2388,7 @@ function renderCrewList(aid){
   // Get this booking's working-day range (any of the crew rows is fine since
   // they share start+days+project)
   const ref = crew[0];
-  const refDates = ref ? workingDatesFor(ref.start, ref.days).map(d => stripTime(d).getTime()) : [];
+  const refDates = ref ? workingDatesFor(ref.start, ref.days).map(d => dayKey(d)) : [];
   const refDateSet = new Set(refDates);
 
   // Build the busy set: tilers booked on ANOTHER assignment that overlaps any
@@ -2231,7 +2400,7 @@ function renderCrewList(aid){
       if(crewIds.has(a.id)) continue;  // skip current booking's own rows
       const aDates = workingDatesFor(a.start, a.days);
       for(const d of aDates){
-        if(refDateSet.has(stripTime(d).getTime())){
+        if(refDateSet.has(dayKey(d))){
           busyTilerIds.add(a.tilerId);
           break;
         }
@@ -2341,7 +2510,7 @@ function setupTouchDrag(){
       const t = tilerById.get(sourceTilerId);
       ghost = document.createElement('div');
       ghost.className='touch-ghost';
-      ghost.innerHTML=`<div class="avatar">${escapeHtml(t.name.split(' ')[0])}</div>`;
+      ghost.innerHTML=`<div class="avatar">${escapeHtml(t.name)}</div>`;
       ghost.style.left=startX+'px';
       ghost.style.top=startY+'px';
       document.body.appendChild(ghost);
@@ -2386,6 +2555,8 @@ function setupTouchDrag(){
 }
 
 function bindEvents(){
+  setupTouchDrag();
+
   // Refresh from cloud
   const refreshBtn = document.getElementById('refreshBtn');
   if(refreshBtn){
@@ -2401,6 +2572,31 @@ function bindEvents(){
   if(clearPastBtn){
     clearPastBtn.onclick = ()=> clearPastBookings();
   }
+
+  // Export day schedule
+  const exportBtn = document.getElementById('exportDayBtn');
+  if(exportBtn){
+    exportBtn.onclick = () => openExportModal();
+  }
+  const exportDateInput = document.getElementById('exportDate');
+  if(exportDateInput){
+    exportDateInput.onchange = (e) => {
+      const d = parseLocalDate(e.target.value);
+      if(d) buildExportText(d);
+    };
+  }
+  const exportCopyBtn = document.getElementById('exportCopyBtn');
+  if(exportCopyBtn){
+    exportCopyBtn.onclick = () => copyExportText();
+  }
+  const exportCancelBtn = document.getElementById('exportCancelBtn');
+  if(exportCancelBtn){
+    exportCancelBtn.onclick = () => closeExportModal();
+  }
+  // Click outside the card closes the modal
+  document.getElementById('exportModal').onclick = (e) => {
+    if(e.target.id === 'exportModal') closeExportModal();
+  };
 
   document.getElementById('prevMonth').onclick=()=>{
     currentDate.setMonth(currentDate.getMonth()-1);
@@ -2489,6 +2685,25 @@ function bindEvents(){
   // Click on a blue crew pill → show "who's free" popover
   // Use mousedown so we attach the outside-click listener AFTER this event,
   // avoiding the same-tick bubble race that was hiding the popover.
+  // Tap a date number/name to export that day
+  document.getElementById('resScroller').addEventListener('click', (e) => {
+    const dayCell = e.target.closest('.res-header-cell .h-day, .res-header-cell .h-name, .res-header-cell .h-month');
+    if(dayCell){
+      const headerCell = dayCell.closest('.res-header-cell');
+      const dayIdx = headerCell?.dataset?.dayIdx;
+      if(dayIdx != null){
+        const days = window._currentDays || [];
+        const dayDate = days[parseInt(dayIdx)];
+        if(dayDate){
+          e.preventDefault();
+          e.stopPropagation();
+          openExportModal(dayDate);
+          return;
+        }
+      }
+    }
+  }, true);  // capture so we run before the day-stat-crew handler
+
   document.getElementById('resScroller').addEventListener('click', (e) => {
     const pill = e.target.closest('.day-stat-crew');
     if(!pill || !pill.dataset.dayIdx) return;
@@ -2523,6 +2738,7 @@ function bindEvents(){
 }
 
 function stripTime(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function dayKey(d){return stripTime(d).getTime()}
 
 init();
 </script>
