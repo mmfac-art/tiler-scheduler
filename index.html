@@ -2057,7 +2057,8 @@ function hideUnbookedPopover(){
 function openExportModal(initialDate){
   const modal = document.getElementById('exportModal');
   const dateInput = document.getElementById('exportDate');
-  // Default to today if no date provided
+  // Caller (header button or date-column tap) provides the target date.
+  // The bare `openExportModal()` fallback to today exists only as a safety net.
   const target = initialDate ? stripTime(initialDate) : stripTime(new Date());
   dateInput.value = localDateString(target);
   buildExportText(target);
@@ -2081,6 +2082,18 @@ function buildExportText(date){
   const onThisDay = assignments.filter(a => {
     const dates = workingDatesFor(a.start, a.days);
     return dates.some(d => dayKey(d) === targetKey);
+  });
+
+  // Sort bookings: leader first, then alphabetically by tiler name.
+  // This applies inside each (project, task type) group so the leader is
+  // printed first in the export, matching the calendar bar order.
+  onThisDay.sort((x, y) => {
+    const xL = x.isLeader ? 0 : 1;
+    const yL = y.isLeader ? 0 : 1;
+    if(xL !== yL) return xL - yL;
+    const xN = (tilerById.get(x.tilerId)?.name) || '';
+    const yN = (tilerById.get(y.tilerId)?.name) || '';
+    return xN.localeCompare(yN);
   });
 
   // Group by project, then by task type
@@ -2576,7 +2589,12 @@ function bindEvents(){
   // Export day schedule
   const exportBtn = document.getElementById('exportDayBtn');
   if(exportBtn){
-    exportBtn.onclick = () => openExportModal();
+    exportBtn.onclick = () => {
+      // Default to tomorrow when opened via the header button
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      openExportModal(tomorrow);
+    };
   }
   const exportDateInput = document.getElementById('exportDate');
   if(exportDateInput){
