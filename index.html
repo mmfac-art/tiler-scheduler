@@ -935,6 +935,23 @@
     opacity:0;transition:opacity .2s ease;
   }
   .export-modal .export-copy-feedback.show{opacity:1}
+
+  #lockBtn{
+    padding:6px 12px;border-radius:18px;border:1px solid var(--line);background:var(--paper);
+    cursor:pointer;font-size:14px;color:var(--ink-2);
+    font-family:'Google Sans','Roboto',sans-serif;
+    transition:background .12s ease, border-color .12s ease;
+    white-space:nowrap;
+  }
+  #lockBtn:hover{background:var(--paper-3);color:var(--ink)}
+  #lockBtn.unlocked{
+    background:#fff3e0;  /* soft amber — same family as leader highlight */
+    border-color:#ffb74d;
+  }
+  #lockBtn.unlocked:hover{background:#ffe0b2}
+  @media (max-width:540px){
+    #lockBtn{padding:6px 10px;font-size:14px}
+  }
 </style>
 </head>
 <body>
@@ -953,6 +970,7 @@
       <span class="sync-text" id="syncText">Not connected</span>
     </div>
     <span class="last-sync-label" id="lastSyncLabel" title="Click sync indicator to see details">Never refreshed</span>
+    <button class="btn-secondary" id="lockBtn" title="Currently locked — click to unlock for editing">🔓</button>
     <button class="btn-secondary" id="exportDayBtn" title="Export a day's schedule as text">📋<span class="export-label"> Export</span></button>
     <button class="btn-secondary" id="clearPastBtn" title="Clear bookings ended before today">🗑<span class="past-label"> Past</span></button>
     <button class="btn-secondary" id="refreshBtn" title="Refresh from SharePoint">↻</button>
@@ -1225,6 +1243,70 @@ function refreshProjectCount(){
 // ===================================================================
 // LIVE DATA LAYER — reads from JSONBin (populated by Power Automate)
 // ===================================================================
+
+// ===================================================================
+// EDIT LOCK — view-only by default, unlock with password
+// ===================================================================
+// SHA-256 hash of the unlock password. To change the password:
+//   1. Compute the SHA-256 of your new password (e.g. `echo -n newpw | sha256sum`
+//      or use any online SHA-256 tool)
+//   2. Replace the string below with the new hash (all lowercase hex)
+//   3. Re-upload the HTML to GitHub
+// Current password: "unlockme"
+const EDIT_PASSWORD_HASH = "313cbb295811b981c8f9217671e48a683c895ea0142c9c76504d1d2942a8559a";
+
+// Session state — resets when tab closes (kept in memory, not persisted)
+let isUnlocked = false;
+
+async function sha256Hex(str){
+  const buf = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function promptUnlock(){
+  const pw = window.prompt('Enter unlock password:');
+  if(pw === null || pw === '') return false;
+  const hash = await sha256Hex(pw);
+  if(hash === EDIT_PASSWORD_HASH){
+    isUnlocked = true;
+    updateLockButton();
+    showToast('🔓 Edit mode unlocked', 'success');
+    return true;
+  }
+  showToast('Wrong password', 'error');
+  return false;
+}
+
+function lockAgain(){
+  isUnlocked = false;
+  updateLockButton();
+  showToast('🔒 Locked — view only', 'success');
+}
+
+function updateLockButton(){
+  const btn = document.getElementById('lockBtn');
+  if(!btn) return;
+  if(isUnlocked){
+    btn.textContent = '🔒';
+    btn.title = 'Currently unlocked — click to lock';
+    btn.classList.add('unlocked');
+  } else {
+    btn.textContent = '🔓';
+    btn.title = 'Currently locked — click to unlock for editing';
+    btn.classList.remove('unlocked');
+  }
+}
+
+// Gate every write action. Returns true if allowed (unlocked), false otherwise
+// (and shows a toast).
+function requireUnlock(){
+  if(isUnlocked) return true;
+  showToast('🔒 Unlock to edit', 'error');
+  return false;
+}
 
 const JSONBIN_CONFIG = {
   apiKey: "$2a$10$A0o3.IzWE6wQrsc7M0Pq1OtF8WRIvtZVHvISy9sXV8SJ2tTB8vzdq",
@@ -1937,6 +2019,7 @@ function renderResourceView(){
           if(ev.target.classList.contains('res-bar-remove')){
             // remove just this one tiler's assignment (not the whole crew)
             const aid = ev.target.dataset.aid;
+            if(!requireUnlock()) return;
             assignments = assignments.filter(x => x.id !== aid);
             saveBookingsToCloud();
             refresh();
@@ -2184,6 +2267,7 @@ async function copyExportText(){
 }
 
 function clearPastBookings(){
+  if(!requireUnlock()) return;
   const today = stripTime(new Date());
   // A booking's last working day = workingDatesFor()[length-1]. We clear bookings
   // whose last working day is strictly BEFORE today.
@@ -2274,6 +2358,7 @@ function getModalTaskType(){
 
 function addAssignment(tilerId, projectId, start, days, taskType){
   if(!projectId) return;
+  if(!requireUnlock()) return;
   assignments.push({
     id:'a'+Date.now()+Math.random().toString(36).slice(2,6),
     tilerId, projectId, start, days,
@@ -2376,6 +2461,7 @@ function renderCrewList(aid){
         showToast('Use "Delete all" to remove the last member', 'error');
         return;
       }
+      if(!requireUnlock()) return;
       assignments = assignments.filter(x=>x.id!==asg.id);
       saveBookingsToCloud();
       if(asg.id === editingId) editingId = remaining[0].id;
@@ -2461,6 +2547,7 @@ function showCrewMenu(asg, anchorEl){
   menu.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if(!btn) return;
+    if(!requireUnlock()){ menu.remove(); return; }
     if(btn.dataset.action === 'promote'){
       // Demote any current leader, promote this one
       const crew = getCrewAssignments(editingId);
@@ -2586,6 +2673,19 @@ function bindEvents(){
     clearPastBtn.onclick = ()=> clearPastBookings();
   }
 
+  // Lock / unlock toggle
+  const lockBtn = document.getElementById('lockBtn');
+  if(lockBtn){
+    lockBtn.onclick = async () => {
+      if(isUnlocked){
+        lockAgain();
+      } else {
+        await promptUnlock();
+      }
+    };
+    updateLockButton();  // set initial state
+  }
+
   // Export day schedule
   const exportBtn = document.getElementById('exportDayBtn');
   if(exportBtn){
@@ -2635,6 +2735,7 @@ function bindEvents(){
 
   document.getElementById('modalCancel').onclick=closeModal;
   document.getElementById('modalDelete').onclick=()=>{
+    if(!requireUnlock()) return;
     // delete all members of the crew booking
     const crew = getCrewAssignments(editingId);
     const ids = new Set(crew.map(c=>c.id));
@@ -2643,6 +2744,7 @@ function bindEvents(){
     closeModal();refresh();
   };
   document.getElementById('modalSave').onclick=()=>{
+    if(!requireUnlock()) return;
     // update project/start/days/taskType on ALL crew members at once
     const crew = getCrewAssignments(editingId);
     if(crew.length===0) return;
